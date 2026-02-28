@@ -33,16 +33,35 @@ if uploaded_file is not None:
         st.warning("Uploaded file is empty.")
         st.stop()
 
-    st.subheader("📄 Data Preview")
-    st.dataframe(df.head(), width="stretch")
+    # ---------------------------
+    # 🔥 Large Dataset Safety Fixes
+    # ---------------------------
+
+    # Remove auto index columns like Unnamed: 0
+    df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
+
+    # Convert all columns to string to avoid Arrow type errors
+    df = df.astype(str)
+
+    # Guard against extremely large datasets (Streamlit Cloud limit protection)
+    if len(df) > 600000:
+        st.warning("Dataset too large for Streamlit Cloud memory limits.")
+        st.stop()
+
+    # ---------------------------
+    # Preview (Safe Rendering)
+    # ---------------------------
+
+    st.subheader("📄 Data Preview (First 100 Rows)")
+    st.dataframe(df.head(100), width="stretch")
 
     # ---------------------------
     # Process Button
     # ---------------------------
+
     if st.button("⚡ Process Data"):
 
-        # Normalize everything to string for safe hashing
-        df_normalized = df.astype(str).apply(lambda x: x.str.strip())
+        df_normalized = df.apply(lambda x: x.str.strip())
 
         seen = set()
         duplicates = []
@@ -52,7 +71,6 @@ if uploaded_file is not None:
 
         for i, (_, row) in enumerate(df_normalized.iterrows()):
 
-            # Convert entire row into a tuple (hashable)
             row_tuple = tuple(row)
 
             if row_tuple in seen:
@@ -72,16 +90,18 @@ if uploaded_file is not None:
         col2.metric("Duplicate Rows", len(duplicates))
 
         # ---------------------------
-        # Show Duplicates
+        # Show Duplicates (Safe Preview)
         # ---------------------------
+
         if duplicates:
-            st.subheader("⚠️ Duplicate Records")
-            st.dataframe(pd.DataFrame(duplicates), width="stretch")
+            st.subheader("⚠️ Duplicate Records (Preview First 100)")
+            st.dataframe(pd.DataFrame(duplicates).head(100), width="stretch")
         else:
             st.success("No duplicate records found 🎉")
 
         # ---------------------------
-        # Show Unique Data
+        # Show Unique Data (Safe Preview)
         # ---------------------------
-        st.subheader("🧠 Unique Dataset")
-        st.dataframe(pd.DataFrame(unique_rows), width="stretch")
+
+        st.subheader("🧠 Unique Dataset (Preview First 100)")
+        st.dataframe(pd.DataFrame(unique_rows).head(100), width="stretch")
